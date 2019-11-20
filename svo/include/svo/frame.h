@@ -113,6 +113,9 @@ public:
 
   /// Frame jacobian for projection of 3D point in (f)rame coordinate to
   /// unit plane coordinates uv (focal length = 1).
+
+  // TODO: CHANGE TO FISHEYE MODEL (PI), OBTAIN JACOBIAN IN TERMS OF UV
+  // comment: jacobian respect to 6DoF camera motion
   inline static void jacobian_xyz2uv(
       const Vector3d& xyz_in_f,
       Matrix<double,2,6>& J)

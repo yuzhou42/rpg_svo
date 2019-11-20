@@ -58,6 +58,7 @@ size_t SparseImgAlign::run(FramePtr ref_frame, FramePtr cur_frame)
 
   SE3 T_cur_from_ref(cur_frame_->T_f_w_ * ref_frame_->T_f_w_.inverse());
 
+  // HM: run from the most course level to refined, intermediate T initialisation is passed through T_cur_from_ref
   for(level_=max_level_; level_>=min_level_; --level_)
   {
     mu_ = 0.1;
@@ -91,11 +92,13 @@ void SparseImgAlign::precomputeReferencePatches()
   const double focal_length = ref_frame_->cam_->errorMultiplier2();
   size_t feature_counter = 0;
   std::vector<bool>::iterator visiblity_it = visible_fts_.begin();
+
+  // for every features in the reference frame
   for(auto it=ref_frame_->fts_.begin(), ite=ref_frame_->fts_.end();
       it!=ite; ++it, ++feature_counter, ++visiblity_it)
   {
     // check if reference with patch size is within image
-    const float u_ref = (*it)->px[0]*scale;
+    const float u_ref = (*it)->px[0]*scale; // HM: the more coarse the image, the smaller the scale. this is caused by the lower resolution than the original image
     const float v_ref = (*it)->px[1]*scale;
     const int u_ref_i = floorf(u_ref);
     const int v_ref_i = floorf(v_ref);
@@ -114,6 +117,7 @@ void SparseImgAlign::precomputeReferencePatches()
     // compute bilateral interpolation weights for reference image
     const float subpix_u_ref = u_ref-u_ref_i;
     const float subpix_v_ref = v_ref-v_ref_i;
+    // HM: weight for floating point pixel, top-left, top-right and so on
     const float w_ref_tl = (1.0-subpix_u_ref) * (1.0-subpix_v_ref);
     const float w_ref_tr = subpix_u_ref * (1.0-subpix_v_ref);
     const float w_ref_bl = (1.0-subpix_u_ref) * subpix_v_ref;
@@ -229,6 +233,7 @@ double SparseImgAlign::computeResiduals(
           H_.noalias() += J*J.transpose()*weight;
           Jres_.noalias() -= J*res*weight;
           if(display_)
+          // HM: This follows the matrix convention, (row, column) or (v, u)
             resimg_.at<float>((int) v_cur+y-patch_halfsize_, (int) u_cur+x-patch_halfsize_) = res/255.0;
         }
       }

@@ -43,7 +43,8 @@ struct Feature
     type(CORNER),
     frame(_frame),
     px(_px),
-    f(frame->cam_->cam2world(px)),
+    // HM: f is in camera's local coordinates
+    f(frame->cam_->cam2world(px)), 
     level(_level),
     point(NULL),
     grad(1.0,0.0)

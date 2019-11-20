@@ -29,7 +29,8 @@ namespace initialization {
 InitResult KltHomographyInit::addFirstFrame(FramePtr frame_ref)
 {
   reset();
-  detectFeatures(frame_ref, px_ref_, f_ref_);
+  // HM: f_ref_ store is the bearing of the feature from the camera centre
+  detectFeatures(frame_ref, px_ref_, f_ref_); 
   if(px_ref_.size() < 100)
   {
     SVO_WARN_STREAM_THROTTLE(2.0, "First image has less than 100 features. Retry in more textured environment.");
@@ -55,7 +56,7 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
 
   computeHomography(
       f_ref_, f_cur_,
-      frame_ref_->cam_->errorMultiplier2(), Config::poseOptimThresh(),
+      frame_ref_->cam_->errorMultiplier2() /*HM: fabs(fx_) */, Config::poseOptimThresh(),
       inliers_, xyz_in_cur_, T_cur_from_ref_);
   SVO_INFO_STREAM("Init: Homography RANSAC "<<inliers_.size()<<" inliers.");
 
@@ -81,7 +82,8 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
   {
     Vector2d px_cur(px_cur_[*it].x, px_cur_[*it].y);
     Vector2d px_ref(px_ref_[*it].x, px_ref_[*it].y);
-    if(frame_ref_->cam_->isInFrame(px_cur.cast<int>(), 10) && frame_ref_->cam_->isInFrame(px_ref.cast<int>(), 10) && xyz_in_cur_[*it].z() > 0)
+    // HM: correct logic error
+    if(frame_cur->cam_->isInFrame(px_cur.cast<int>(), 10) && frame_ref_->cam_->isInFrame(px_ref.cast<int>(), 10) && xyz_in_cur_[*it].z() > 0)
     {
       Vector3d pos = T_world_cur * (xyz_in_cur_[*it]*scale);
       Point* new_point = new Point(pos);
@@ -119,7 +121,8 @@ void detectFeatures(
   f_vec.clear(); f_vec.reserve(new_features.size());
   std::for_each(new_features.begin(), new_features.end(), [&](Feature* ftr){
     px_vec.push_back(cv::Point2f(ftr->px[0], ftr->px[1]));
-    f_vec.push_back(ftr->f);
+    //HM: This vector is in camera's local coordinates, pointing from camera to the feature centre
+    f_vec.push_back(ftr->f); 
     delete ftr;
   });
 }
@@ -160,7 +163,9 @@ void trackKlt(
       f_ref_it = f_ref.erase(f_ref_it);
       continue;
     }
-    f_cur.push_back(frame_cur->c2f(px_cur_it->x, px_cur_it->y));
+    // HM: f_cur is normalised, after adding Z = 1 in the camera coordinates. In the current frame
+    // HM: image coordinates to frame's unit sphere
+    f_cur.push_back(frame_cur->c2f(px_cur_it->x, px_cur_it->y)); 
     disparities.push_back(Vector2d(px_ref_it->x - px_cur_it->x, px_ref_it->y - px_cur_it->y).norm());
     ++px_ref_it;
     ++px_cur_it;
@@ -181,9 +186,12 @@ void computeHomography(
   vector<Vector2d > uv_cur(f_cur.size());
   for(size_t i=0, i_max=f_ref.size(); i<i_max; ++i)
   {
-    uv_ref[i] = vk::project2d(f_ref[i]);
+    // HM: devide z-component, normalise z to 1
+    uv_ref[i] = vk::project2d(f_ref[i]); 
     uv_cur[i] = vk::project2d(f_cur[i]);
   }
+
+  // HM: uv_ref, uv_cur should be in unit plane in camera coordinates
   vk::Homography Homography(uv_ref, uv_cur, focal_length, reprojection_threshold);
   Homography.computeSE3fromMatches();
   vector<int> outliers;

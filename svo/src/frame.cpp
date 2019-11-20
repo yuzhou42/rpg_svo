@@ -76,9 +76,11 @@ void Frame::setKeyPoints()
       if(key_pts_[i]->point == NULL)
         key_pts_[i] = NULL;
 
+  // HM: iterate through all features in the frame (already a keyframe)
   std::for_each(fts_.begin(), fts_.end(), [&](Feature* ftr){ if(ftr->point != NULL) checkKeyPoints(ftr); });
 }
 
+// HM: check if a feature is to be iteratively updated into one of the 5-keypoint
 void Frame::checkKeyPoints(Feature* ftr)
 {
   const int cu = cam_->width()/2;
@@ -91,6 +93,7 @@ void Frame::checkKeyPoints(Feature* ftr)
         < std::max(std::fabs(key_pts_[0]->px[0]-cu), std::fabs(key_pts_[0]->px[1]-cv)))
     key_pts_[0] = ftr;
 
+  // HM: bottom right
   if(ftr->px[0] >= cu && ftr->px[1] >= cv)
   {
     if(key_pts_[1] == NULL)
@@ -99,15 +102,19 @@ void Frame::checkKeyPoints(Feature* ftr)
           > (key_pts_[1]->px[0]-cu) * (key_pts_[1]->px[1]-cv))
       key_pts_[1] = ftr;
   }
+
+  // HM: top right
   if(ftr->px[0] >= cu && ftr->px[1] < cv)
   {
     if(key_pts_[2] == NULL)
       key_pts_[2] = ftr;
-    else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
-          > (key_pts_[2]->px[0]-cu) * (key_pts_[2]->px[1]-cv))
+    else if((ftr->px[0]-cu) * (cv - ftr->px[1])
+          > (key_pts_[2]->px[0]-cu) * (cv - key_pts_[2]->px[1]))
       key_pts_[2] = ftr;
   }
-  if(ftr->px[0] < cv && ftr->px[1] < cv)
+
+  // HM: top left
+  if(ftr->px[0] < cu && ftr->px[1] < cv)
   {
     if(key_pts_[3] == NULL)
       key_pts_[3] = ftr;
@@ -115,12 +122,14 @@ void Frame::checkKeyPoints(Feature* ftr)
           > (key_pts_[3]->px[0]-cu) * (key_pts_[3]->px[1]-cv))
       key_pts_[3] = ftr;
   }
-  if(ftr->px[0] < cv && ftr->px[1] >= cv)
+
+  // HM: bottom left
+  if(ftr->px[0] < cu && ftr->px[1] >= cv)
   {
     if(key_pts_[4] == NULL)
       key_pts_[4] = ftr;
-    else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
-          > (key_pts_[4]->px[0]-cu) * (key_pts_[4]->px[1]-cv))
+    else if((cu - ftr->px[0]) * (ftr->px[1]-cv)
+          > (cu - key_pts_[4]->px[0]) * (key_pts_[4]->px[1]-cv))
       key_pts_[4] = ftr;
   }
 }
